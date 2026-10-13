@@ -1,0 +1,8 @@
+# Variante de TESTE do Pong: sem console (GT nulo), para o modo --bot rodar sem terminal.
+# Nao e distribuida; o jogo real usa pong.hbp (-gtwin).
+-opong_bot
+-gtnul
+-w
+hbwin.hbc
+
+pong.prg
