@@ -56,3 +56,7 @@ Compila sem avisos, autoteste 48/48, bot completa partidas nos dois builds. Agua
 
 - No modo de reserva por eventos (auto-repeat do teclado) os dois jogadores funcionam, mas nao ao mesmo tempo com fluidez; o modo direto e o recomendado.
 - `pong.exe --bot` dentro de terminal automatizado pode congelar se a janela não é consumida; usar `pong_bot.exe` (GT nulo).
+
+## Atualização 2026-10-13: cores
+
+Cores corrigidas: as letras C, M e Y não existem no Harbour 3.0 (viram cinza ou preto); o jogo agora usa BG, RB e GR e o autoteste tem a verificação `cores validas no fonte`. Ver `BEST_PRACTICES.md`.

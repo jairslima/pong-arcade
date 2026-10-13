@@ -169,7 +169,7 @@ STATIC PROCEDURE RunMenu()
       { " ### ", "#   #", "#   #", "#   #", " ### " }, ;
       { "#   #", "##  #", "# # #", "#  ##", "#   #" }, ;
       { " ####", "#    ", "# ###", "#   #", " ### " } }
-   LOCAL aClr := { "R+/N", "Y+/N", "G+/N", "C+/N" }
+   LOCAL aClr := { "R+/N", "GR+/N", "G+/N", "BG+/N" }
    LOCAL aLbl, cClr
 
    DO WHILE .T.
@@ -198,7 +198,7 @@ STATIC PROCEDURE RunMenu()
             hb_DispOutAt( 10 + i * 2 - 2, 24, PadR( IIF( i == nSel, " > ", "   " ) + aLbl[ i ], 32 ), cClr )
          NEXT
 
-         hb_DispOutAt( 20, 0, PadC( "MELHOR RALLY: " + hb_ntos( s_nBest ), 80 ), "Y+/N" )
+         hb_DispOutAt( 20, 0, PadC( "MELHOR RALLY: " + hb_ntos( s_nBest ), 80 ), "GR+/N" )
          hb_DispOutAt( 22, 0, PadC( "CIMA/BAIXO escolhe   ENTER confirma   ESQ/DIR muda   ESC sai", 80 ), "W/N" )
 
          // bolinha quicando na linha 21 e 23
@@ -292,7 +292,7 @@ STATIC FUNCTION PlayMatch( nPl )
       ENDIF
       SaveBestIfNeeded()
       HudAll()                                   // o placar muda na hora, antes da pausa
-      hb_DispOutAt( FT + 2, FL + Int( FWID / 2 ) - 6, PadC( IIF( nRes == 1, "PONTO P1", "PONTO P2" ), 12 ), "Y+/N" )
+      hb_DispOutAt( FT + 2, FL + Int( FWID / 2 ) - 6, PadC( IIF( nRes == 1, "PONTO P1", "PONTO P2" ), 12 ), "GR+/N" )
       PauseSec( 1.1 )
       hb_DispOutAt( FT + 2, FL + Int( FWID / 2 ) - 6, Space( 12 ), "W/N" )
       IF s_nSc1 >= WIN_SCORE
@@ -354,7 +354,7 @@ STATIC FUNCTION PlayPoint( nDir, lQuit )
       ENDIF
       IF s_lReqPause
          PlaySfx( "pause", 5 )
-         Banner( "PAUSA - qualquer tecla", "Y+/N" )
+         Banner( "PAUSA - qualquer tecla", "GR+/N" )
          Inkey( 0 )
          RedrawAll()
          nNext := TickMs() + s_nTickMs
@@ -386,7 +386,7 @@ STATIC FUNCTION PlayPoint( nDir, lQuit )
          nCount--
          IF Int( nCount / 20 ) + 1 != nLastNum .AND. nCount > 0
             nLastNum := Int( nCount / 20 ) + 1
-            hb_DispOutAt( FT + 2, FL + Int( FWID / 2 ) - 4, "  " + hb_ntos( nLastNum ) + "  ", "Y+/N" )
+            hb_DispOutAt( FT + 2, FL + Int( FWID / 2 ) - 4, "  " + hb_ntos( nLastNum ) + "  ", "GR+/N" )
             PlaySfx( "count", 3 )
          ENDIF
          IF nCount <= 0
@@ -751,8 +751,8 @@ STATIC PROCEDURE HudAll()
    hb_DispOutAt( 1, 8, PadR( IIF( s_nPlayers == 1, "VOCE", "JOGADOR 1" ), 12 ), "W/N" )
    hb_DispOutAt( 1, 60, PadL( IIF( s_nPlayers == 1, "CPU " + { "FACIL", "NORMAL", "DIFICIL" }[ s_nDiff ], "JOGADOR 2" ), 12 ), "W/N" )
    DrawBigDigit( s_nSc1, 2, 14, "G+/N" )
-   DrawBigDigit( s_nSc2, 2, 58, "C+/N" )
-   hb_DispOutAt( 2, 34, PadC( "RALLY " + hb_ntos( s_nRally ), 12 ), "Y+/N" )
+   DrawBigDigit( s_nSc2, 2, 58, "BG+/N" )
+   hb_DispOutAt( 2, 34, PadC( "RALLY " + hb_ntos( s_nRally ), 12 ), "GR+/N" )
    hb_DispOutAt( 4, 34, PadC( "MELHOR " + hb_ntos( s_nBest ), 12 ), "W/N" )
 
 RETURN
@@ -779,7 +779,7 @@ STATIC PROCEDURE DrawPaddles()
          NEXT
       ENDIF
       FOR r := 0 TO PH - 1
-         hb_DispOutAt( n2 + r, PR0, BLK + BLK, "C+/N" )
+         hb_DispOutAt( n2 + r, PR0, BLK + BLK, "BG+/N" )
       NEXT
       s_nDr2 := n2
    ENDIF
@@ -829,7 +829,7 @@ STATIC PROCEDURE DrawAll()
    // so redesenha o texto quando o rally muda: escrever o mesmo texto a cada tick
    // enche a pipe do ConPTY (Windows Terminal) e bloqueia toda chamada de console
    IF s_nRally != s_nRallyDrawn
-      hb_DispOutAt( 2, 34, PadC( "RALLY " + hb_ntos( s_nRally ), 12 ), "Y+/N" )
+      hb_DispOutAt( 2, 34, PadC( "RALLY " + hb_ntos( s_nRally ), 12 ), "GR+/N" )
       s_nRallyDrawn := s_nRally
    ENDIF
 
@@ -1084,10 +1084,60 @@ HB_FUNC( KEYFOCUS )
 // Autoteste sem interface (pong --selftest): regras deterministas
 // ---------------------------------------------------------------------
 
+// Varre um .prg e devolve a lista de strings de cor com letras que o Harbour NAO reconhece.
+// Letras validas: N B G R W (+ BG ciano, RB magenta, GR amarelo/marrom, U I X), com + ou * depois.
+// C, M e Y NAO existem: C+/N vira cinza (8) e Y/N vira preto (0). Devolve NIL se o arquivo nao existe.
+STATIC FUNCTION ColorLint( cFile )
+
+   LOCAL cSrc, i, cCh, cCur := "", lIn := .F., aBad := {}, aSides, cSide, cLet, j, lBad
+
+   IF ! File( cFile )
+      RETURN NIL
+   ENDIF
+   cSrc := MemoRead( cFile )
+   FOR i := 1 TO Len( cSrc )
+      cCh := SubStr( cSrc, i, 1 )
+      IF cCh == Chr( 34 )
+         IF lIn
+            lIn := .F.
+            // candidata: so letras, + e *, com uma unica barra, sem espacos
+            lBad := ( Len( cCur ) >= 3 .AND. Len( cCur ) <= 12 .AND. ( Len( cCur ) - Len( StrTran( cCur, "/", "" ) ) ) == 1 )
+            IF lBad
+               FOR j := 1 TO Len( cCur )
+                  IF ! SubStr( cCur, j, 1 ) $ "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+*/"
+                     lBad := .F.
+                     EXIT
+                  ENDIF
+               NEXT
+            ENDIF
+            IF lBad
+               aSides := hb_ATokens( cCur, "/" )
+               IF Len( aSides ) == 2 .AND. ! Empty( aSides[ 1 ] ) .AND. ! Empty( aSides[ 2 ] )
+                  FOR EACH cSide IN aSides
+                     cLet := Upper( StrTran( StrTran( cSide, "+", "" ), "*", "" ) )
+                     IF ! ( "|" + cLet + "|" ) $ "|N|B|G|BG|R|RB|GR|W|U|I|X|"
+                        AAdd( aBad, cCur )
+                        EXIT
+                     ENDIF
+                  NEXT
+               ENDIF
+            ENDIF
+         ELSE
+            lIn := .T.
+            cCur := ""
+         ENDIF
+      ELSEIF lIn
+         cCur += cCh
+      ENDIF
+   NEXT
+
+RETURN aBad
+
 STATIC PROCEDURE SelfTest()
 
    LOCAL nBad := 0, cLog := "", cWav, a, i, j, nRes, nT0, nTicks, nOk, y, nPy, nPoints
    LOCAL nWall := 0, nStuck := 0, nMaxRally := 0
+   LOCAL aBadClr
    LOCAL bChk := {| lOk, cMsg | cLog += IIF( lOk, "ok    ", "FALHA " ) + cMsg + hb_eol(), IIF( lOk, NIL, nBad++ ) }
 
    s_lSnd := .F.
@@ -1327,6 +1377,14 @@ STATIC PROCEDURE SelfTest()
    NEXT
    cLog += "info  30 x SleepMs(2), melhor de 3 = " + hb_ntos( nT0 ) + " ms" + hb_eol()
    Eval( bChk, nT0 < 200, "TimerRes(1) + Sleep nativo: precisao de ~1-2 ms" )
+
+   // cores: o proprio fonte nao pode usar letras de cor que o Harbour nao reconhece (C, M, Y)
+   aBadClr := ColorLint( hb_DirBase() + "pong.prg" )
+   IF aBadClr == NIL
+      cLog += "info  fonte nao encontrado ao lado do exe: verificacao de cores ignorada" + hb_eol()
+   ELSE
+      Eval( bChk, Empty( aBadClr ), "cores validas no fonte (invalidas: " + hb_ValToExp( aBadClr ) + ")" )
+   ENDIF
 
    cLog += "falhas=" + hb_ntos( nBad ) + hb_eol()
    hb_MemoWrit( hb_DirBase() + "pong_selftest.log", cLog )

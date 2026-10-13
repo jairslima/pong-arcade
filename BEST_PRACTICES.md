@@ -1,6 +1,6 @@
 # Boas práticas: jogos ASCII em Harbour/Clipper
 
-Notas reutilizáveis para novos jogos ASCII (Snake, Space Invaders, Pong e Tetris já seguem este guia), considerando Harbour 3.0.0 em console Windows com GTWIN.
+Notas reutilizáveis para novos jogos ASCII (Snake, Space Invaders, Pong, Tetris e Arkanoid já seguem este guia), considerando Harbour 3.0.0 em console Windows com GTWIN.
 
 ## 1. Estrutura do código
 
@@ -246,3 +246,41 @@ O Space Invaders foi entregue com autoteste verde e **fechou sozinho depois do E
 
 - Reler o código recém-escrito antes de compilar achou 5 defeitos reais (variável de estado não declarada, nome com prefixo `hb_`, entrada contada em dobro, logo do menu, expectativa errada em um teste). Vale como etapa fixa: **escrever, reler com olho de revisor, só então compilar**.
 - Revisão externa (Grok, texto puro, máx. 900 palavras) sempre mistura achados reais e falsos: neste jogo 1 de 5 era real. Conferir cada um contra o código.
+
+## Lições do Arkanoid (2026-10-13)
+
+### Cores: no Harbour 3.0 as letras C, M e Y NÃO existem
+
+- **[testado com `hb_ColorToN`]** `"C+/N"` vira 8 (cinza escuro), `"M+/N"` vira 8, `"Y+/N"` vira 8 e `"Y/N"` e `"C/N"` viram 0 (preto). Valem apenas `N B G R W` e as combinações `BG` (ciano), `RB` (magenta) e `GR` (amarelo/marrom), com `+` para brilhante: `BG+/N`, `RB+/N`, `GR+/N`.
+- Foi um erro presente nos cinco jogos desde o Snake (79 ocorrências): o amarelo, o ciano e o magenta apareciam cinza ou invisíveis. Só foi notado quando o usuário mandou um **print** do Arkanoid: a fileira marrom dos tijolos sumia e a ciano aparecia cinza.
+- **Regra:** só usar `N B G R W BG RB GR` (mais `U I X`) nas strings de cor. Cada autoteste agora tem a verificação `cores validas no fonte`: a função `ColorLint( arquivo )` lê o próprio `.prg`, acha toda string do formato `XXX/YYY` e reprova qualquer lado que não esteja na lista. Ela já pegou o próprio comentário que continha exemplos de cor inválida (aspas dentro de comentário contam): escrever exemplos sem aspas.
+- Como conferir à mão: `hb_ColorToN( "BG+/N" )` deve dar 11 (ciano brilhante); se der 8 ou 0 a letra foi ignorada.
+
+### Print do usuário é diagnóstico
+
+- Ler os prints da pasta de capturas (a mais recente primeiro) antes de supor: no mesmo print apareceram a cola ativa (raquete verde e larga com a bola presa), o erro de cor e resíduos de desenho.
+- Capturar também ajuda a validar cada correção depois: o que o autoteste e o bot não veem (cor, posição, rótulo cortado) só aparece na tela.
+
+### Experiência de poderes (UX)
+
+- Poder que muda as regras (cola que prende a bola a cada rebatida) precisa de **três coisas**: indicação visível com o tempo restante (painel `COLA 12s  GRANDE 9s  LASER 3s` na moldura de cima), cor própria da raquete (laser vermelho, cola verde) e **soltura automática** (a bola colada solta sozinha em ~1,75 s; espaço solta antes). Sem isso, o jogador acha que a bola "trava" e que é bug.
+- Cor da raquete e posição são cacheadas para não redesenhar a cada tick: **a cor entra no cache** (senão o poder expira e a raquete continua verde).
+
+### Física de bola com tijolos
+
+- Bola em sub-passos (no máximo 0,5 coluna e 0,4 linha por sub-passo): testar o eixo X e depois o eixo Y separadamente e, por fim, a célula diagonal (desfaz e inverte os dois eixos). Teste: 72 posições e ângulos na velocidade máxima, sempre quebra tijolo.
+- Anti-travamento: reescalar a bola para a velocidade global e impedir `|vy|` abaixo de 22% dela (nunca fica horizontal); depois de 1200 ticks sem quebrar tijolo, empurrar o ângulo.
+- As colunas valem metade de uma linha: `vx` tem o dobro (`vx = 2 x v x sen(a)`, `vy = v x cos(a)`) para o ângulo parecer certo.
+- Apagar a bola não pode estragar o que está na mesma célula (tijolo, raquete); apagar cápsulas em queda também restaura os tijolos que elas cobriam. Ao apagar na linha da raquete, forçar o redesenho dela.
+- `Sin`, `Cos` e `Atan` NÃO são do núcleo do Harbour 3.0: linkar `hbct.hbc`.
+
+### Simulação com o mesmo código do jogo
+
+- O passo do mundo (`StepWorld`: poderes, saque, bolas, cápsulas, tiros, anti-travamento) é uma função só, usada pelo jogo e pela simulação do autoteste. Assim a simulação (IA joga as 5 fases em memória, 1,4 mil a 9,9 mil ticks cada) testa o código de verdade e achou, antes do teste humano, o deadlock da cola (a bola colada nunca soltava no bot).
+- Todo desenho passa por uma função `Put()` que o autoteste desliga: nenhum desenho dentro das regras.
+- Duplicar a lógica do jogo dentro do teste é a receita para o teste passar com o jogo quebrado.
+
+### Revisão do Grok (Arkanoid)
+
+- 5 de 6 achados de lógica eram reais (D com 2 bolas virava 4, cor da raquete não voltava ao normal, laser acima do limite, 5ª vida cortada no HUD, ordem fim de fase x perda de bola). O pedido enxuto (máx. 900 palavras) segue funcionando.
+- Os falsos positivos continuam sendo "NAO VERIFICADO" sobre funções que o build já prova.
