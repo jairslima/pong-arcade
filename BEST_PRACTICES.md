@@ -1,6 +1,6 @@
 # Boas práticas: jogos ASCII em Harbour/Clipper
 
-Notas reutilizáveis para Tetris e jogos semelhantes (Snake, Space Invaders e Pong já seguem este guia), considerando Harbour 3.0.0 em console Windows com GTWIN.
+Notas reutilizáveis para novos jogos ASCII (Snake, Space Invaders, Pong e Tetris já seguem este guia), considerando Harbour 3.0.0 em console Windows com GTWIN.
 
 ## 1. Estrutura do código
 
@@ -209,3 +209,40 @@ O Space Invaders foi entregue com autoteste verde e **fechou sozinho depois do E
 ### Fluxo de revisão (3º jogo)
 
 - Tempo gasto: o `Wait` custou mais de uma hora de diagnóstico porque os sintomas pareciam de ambiente. Se um jogo "congela" só no bot, **olhar primeiro o código do fluxo** (nomes, comandos, esperas) antes do ambiente.
+
+## Lições do Tetris (2026-10-13)
+
+### Música em paralelo aos efeitos (MCI)
+
+- O `PlaySound` tem canal único: efeito novo corta o anterior, e música junto com efeitos não é possível. A saída é tocar a música pelo **MCI** (`mciSendStringA`, função C embutida `MCSEND`) e deixar os efeitos no `PlaySound`: **[testado]** os dois tocam ao mesmo tempo (o autoteste abre e toca o WAV real, `open=0 play=0`).
+- Comandos usados: `open "arq.wav" type waveaudio alias bgm`, `setaudio bgm volume to 350`, `play bgm`, `pause bgm`, `resume bgm`, `stop bgm`, `close bgm`, `play bgm from 0`, `status bgm mode`.
+- `waveaudio` **não tem `repeat`**: um laço confere `status bgm mode` a cada 1 s e reinicia com `play bgm from 0` quando volta `stopped`.
+- **Bug clássico de estado:** pausar a música no game over e, ao voltar ao menu, `StartMusic()` retornar cedo ("já está ligada") deixa a música pausada para sempre. Quem liga deve também retomar. Testar com o MCI real: `paused` vira `playing` (teste `StartMusic retoma a musica que ficou pausada`).
+- Sem dispositivo de áudio o `open` falha e a música simplesmente não toca; o teste registra `info` em vez de falhar.
+- Música de 12 s, 8 bits, 11025 Hz: gerar nota por nota em blocos (`cNote += Chr()` e depois `cData += cNote`) para não copiar a string inteira a cada amostra, e **gerar uma vez e reaproveitar o arquivo** (`tet_bgm.wav`). Música sempre **desligada por padrão**, ligada pelo menu ou por uma tecla.
+
+### Rotação SRS e peças
+
+- 4 rotações por peça em caixa 4x4 descritas como strings de 16 caracteres (`"X"` ocupa); cada peça fica auditável a olho. O teste confere 28 formas, 4 células cada, dentro da caixa.
+- Tabelas de wall kick SRS em hash por `"deparaX"` (`"01"`, `"12"`...). A tabela original tem **y para cima**; com y para baixo o sinal de y é invertido na aplicação (`s_nPy - k[2]`).
+- Teste forte: todas as rotações, de todas as peças, em todas as posições válidas, nunca terminam em colisão (mais de 1000 rotações no teste).
+- **7-bag**: embaralhar `{1..7}` (Fisher-Yates) e consumir com `hb_ADel( aBag, 1, .T. )`; teste de 50 sacos com as 7 peças cada.
+- Remoção de linhas: `hb_ADel( aBoard, nLinha, .T. )` e `hb_AIns( aBoard, 1, linhaVazia, .T. )` em ordem crescente mantém os índices corretos e o tamanho do tabuleiro.
+
+### Entrada: o mesmo toque não pode contar duas vezes
+
+- Com teclado direto (`GetAsyncKeyState`) **e** eventos do `Inkey` ativos ao mesmo tempo, cada giro contava em dobro. No modo direto, descartar as ações vindas dos eventos (`ClearActions()`); no fallback por eventos, usar só os eventos.
+- DAS/ARR próprios (repetição lateral): atraso inicial 160 ms e intervalo 40 ms contados pelo relógio do jogo, não pelo auto-repeat do Windows.
+- Giros, queda instantânea e reserva por **borda de subida** (compara com o estado do tick anterior).
+- Travamento: peça apoiada trava após 500 ms; mover/girar adia até 12 vezes; queda instantânea trava na hora.
+
+### IA do bot
+
+- Heurística clássica: `-0.51 x altura agregada + 0.76 x linhas - 0.36 x buracos - 0.18 x irregularidade`, avaliando todas as rotações e colunas em uma cópia do tabuleiro (`CloneBoard` clona linha a linha, `AClone` raso não basta).
+- Dois bots: `--bot` (joga bem: 301 peças, 120 linhas, nível 13) e `--botdie` (joga mal: chega ao game over em ~19 peças). Juntos exercitam queda, travamento, linhas, nível, próxima peça, hold, game over e recordes (sem entrada de iniciais). Build `tetrisbot.hbp` com `-gtnul`.
+- Se o bot depende de `hb_keyClear()`/`Inkey()` ou de `Banner` com `Inkey( n )`, trocar por versão que não bloqueia no modo bot (`KeyFlush`, `PauseSec`).
+
+### Revisão antes de compilar
+
+- Reler o código recém-escrito antes de compilar achou 5 defeitos reais (variável de estado não declarada, nome com prefixo `hb_`, entrada contada em dobro, logo do menu, expectativa errada em um teste). Vale como etapa fixa: **escrever, reler com olho de revisor, só então compilar**.
+- Revisão externa (Grok, texto puro, máx. 900 palavras) sempre mistura achados reais e falsos: neste jogo 1 de 5 era real. Conferir cada um contra o código.
